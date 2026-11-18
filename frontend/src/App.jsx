@@ -24,7 +24,7 @@ import {
 import { ReactFlow, Background, Controls, MiniMap } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:8001" : "");
+const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:8001" : window.location.origin);
 const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE !== "false";
 let accessToken = window.sessionStorage.getItem("smriti_access_token") || "";
 
