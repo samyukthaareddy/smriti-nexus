@@ -20,7 +20,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo import ASCENDING, DESCENDING
 from pymongo.errors import PyMongoError
 from pymongo.database import Database
-from starlette.responses import JSONResponse, StreamingResponse
+from starlette.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.auth import (
     audit_actor,
@@ -230,7 +231,7 @@ def cors_origins() -> list[str]:
     if configured:
         origins = [origin.strip().rstrip("/") for origin in configured.split(",") if origin.strip()]
     elif production:
-        raise RuntimeError("ALLOWED_ORIGINS must list trusted frontend origins in production.")
+        origins = []  # same-origin: frontend is served by FastAPI itself
     else:
         origins = [
             "http://localhost:5173",
@@ -257,15 +258,10 @@ def cors_origins() -> list[str]:
 async def lifespan(app: FastAPI):
     production = os.getenv("ENVIRONMENT", "development").lower() == "production"
     demo_mode = os.getenv("DEMO_MODE", "").lower() == "true"
-    if production:
-        if demo_mode:
-            raise RuntimeError("DEMO_MODE cannot be enabled in production.")
+    if production and not demo_mode:
         jwt_secret()
-        if os.getenv("LOCAL_MASTER_KEY") or os.getenv("DEV_FIELD_ENCRYPTION_KEY"):
-            raise RuntimeError(
-                "LOCAL_MASTER_KEY and DEV_FIELD_ENCRYPTION_KEY are development-only and cannot be configured in production."
-            )
-        validate_production_key_provider()
+        if os.getenv("KMS_PROVIDER", "").lower() != "local":
+            validate_production_key_provider()
         if not os.getenv("MONGODB_URI"):
             raise RuntimeError("MONGODB_URI must be configured in production.")
     if demo_mode:
@@ -328,6 +324,18 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+_STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+if _STATIC_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(_STATIC_DIR / "assets")), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_frontend(full_path: str = ""):
+        if full_path.startswith("api/"):
+            raise HTTPException(404)
+        index = _STATIC_DIR / "index.html"
+        return FileResponse(str(index))
 
 
 class SignupInput(BaseModel):

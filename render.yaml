@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: smriti-nexus
+    runtime: python
+    rootDir: .
+    buildCommand: "cd frontend && npm install && npm run build && cd ../backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DATABASE
+        value: smriti_nexus
+      - key: JWT_SECRET
+        sync: false
+      - key: AUDIT_SIGNING_KEY
+        sync: false
+      - key: KMS_PROVIDER
+        value: google-cloud-kms
+      - key: GCP_KMS_KEY_NAME
+        sync: false
